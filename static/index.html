@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SentinelOps - Guarded Incident Triage & QA Agent</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              900: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .code-font { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen transition-colors duration-200">
+  <!-- Top Navigation -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-sky-500/20">
+          SO
+        </div>
+        <div>
+          <h1 class="font-bold text-lg text-slate-100 leading-tight">SentinelOps</h1>
+          <p class="text-xs text-slate-400">Guarded Customer Support & Incident Triage Agent</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <div id="healthBadge" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>GET /health: 200 OK</span>
+        </div>
+        <div id="envBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">
+          ENV: DEV
+        </div>
+        <div id="mockBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          MOCK MODE: ON
+        </div>
+        <button id="pauseToggleBtn" onclick="togglePause()" class="px-3 py-1 rounded-md text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          Pause: OFF
+        </button>
+        <button onclick="toggleTheme()" class="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-sm">
+          🌓
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-8">
+
+    <!-- Section 1: Ticket Selection & Triage Trigger -->
+    <section class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm">
+      <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-800 gap-4">
+        <div>
+          <h2 class="text-base font-semibold text-slate-100">1. Customer Ticket Ingestion & Triage Trigger</h2>
+          <p class="text-xs text-slate-400">Select a pre-built incident scenario or customize ticket fields to run through the guarded pipeline.</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-slate-400">Preset Scenario:</span>
+          <select id="ticketPreset" onchange="loadPreset()" class="bg-slate-800 border border-slate-700 text-xs rounded-md px-3 py-1.5 text-slate-200 focus:outline-none focus:border-sky-500">
+            <option value="sla">Acme Corp: 504 Outage & SLA Credit Claim</option>
+            <option value="auth">Globex: Enterprise SSO SAML Decryption Failure</option>
+            <option value="billing">Initech: Invoice Dispute & Duplicate Line Item</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Ticket ID</label>
+          <input type="text" id="ticketId" value="TCK-9901" class="w-full bg-slate-800/80 border border-slate-700 text-xs rounded px-3 py-2 text-slate-200 code-font">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Customer Account ID</label>
+          <input type="text" id="accountId" value="ACC-101" class="w-full bg-slate-800/80 border border-slate-700 text-xs rounded px-3 py-2 text-slate-200 code-font">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Customer Name</label>
+          <input type="text" id="customerName" value="Acme Corp" class="w-full bg-slate-800/80 border border-slate-700 text-xs rounded px-3 py-2 text-slate-200">
+        </div>
+        <div class="flex flex-col justify-end">
+          <label class="flex items-center space-x-2 cursor-pointer mb-2">
+            <input type="checkbox" id="simulateLowScore" class="rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-0">
+            <span class="text-xs text-amber-300 font-medium">Simulate Low Score (Forces 1 QA Rewrite)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <label class="block text-xs font-medium text-slate-400 mb-1">Customer Incident Description</label>
+        <textarea id="ticketIssue" rows="2" class="w-full bg-slate-800/80 border border-slate-700 text-xs rounded px-3 py-2 text-slate-200">504 Gateway Timeout during checkout, requesting 20% SLA credit as per Enterprise tier agreement.</textarea>
+      </div>
+
+      <div class="mt-4 flex items-center justify-between">
+        <div class="text-xs text-slate-500">
+          Flow: Model Context Protocol (MCP) Tools &rarr; Independent Reviewer QA Gate &rarr; SHA-256 Locked Queue
+        </div>
+        <button id="triageBtn" onclick="runTriage()" class="px-5 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs shadow-md shadow-sky-600/30 flex items-center space-x-2 transition">
+          <span id="triageSpinner" class="hidden animate-spin">&#9696;</span>
+          <span>Run Guarded Triage Pipeline</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Section 2: Pipeline Visualization -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Step 1: Tool Calls & Schema Validation -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col h-full shadow-sm">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center space-x-2">
+            <span class="w-6 h-6 rounded-full bg-sky-500/20 text-sky-400 text-xs font-bold flex items-center justify-center">1</span>
+            <h3 class="text-sm font-semibold text-slate-200">MCP Tool Calls</h3>
+          </div>
+          <span id="schemaBadge" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400">Idle</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Tools executed via JSON-RPC 2.0 with strict schema validation (rejection of bool for int/string).</p>
+        <div id="mcpCallsContainer" class="mt-4 flex-1 space-y-3 code-font text-xs overflow-y-auto max-h-96 text-slate-300">
+          <div class="p-3 bg-slate-950/60 rounded border border-slate-800/60 text-slate-500 text-center">
+            No triage executed yet. Click "Run Guarded Triage Pipeline".
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Independent Reviewer QA Gate -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col h-full shadow-sm">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center space-x-2">
+            <span class="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 text-xs font-bold flex items-center justify-center">2</span>
+            <h3 class="text-sm font-semibold text-slate-200">Independent QA Gate</h3>
+          </div>
+          <span id="qaBadge" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400">Idle</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Reviewer isolates writer thoughts; evaluates <code class="text-indigo-300">(draft, rubric, sources)</code> only. Rubric threshold: 8/10.</p>
+        <div id="qaScorecardContainer" class="mt-4 flex-1 space-y-4 text-xs overflow-y-auto max-h-96">
+          <div class="p-3 bg-slate-950/60 rounded border border-slate-800/60 text-slate-500 text-center code-font">
+            Awaiting writer draft evaluation...
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Hash-Locked Human Approval Queue -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col h-full shadow-sm">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center space-x-2">
+            <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">3</span>
+            <h3 class="text-sm font-semibold text-slate-200">Approval Queue & Hash Lock</h3>
+          </div>
+          <span id="queueBadge" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400">0 Items</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Decisions cryptographically bind to canonical payload SHA-256. Post-approval tampering blocks execution.</p>
+        <div id="approvalActionContainer" class="mt-4 flex-1 space-y-3 text-xs overflow-y-auto max-h-96">
+          <div class="p-3 bg-slate-950/60 rounded border border-slate-800/60 text-slate-500 text-center code-font">
+            No proposal currently awaiting review.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Live Audit Trail & Events -->
+    <section class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div>
+          <h2 class="text-base font-semibold text-slate-100">Live Cryptographic Audit Trail</h2>
+          <p class="text-xs text-slate-400">Immutable lifecycle records (<code class="text-sky-300">proposed</code> &rarr; <code class="text-emerald-300">approved</code> &rarr; <code class="text-rose-300">blocked</code> / <code class="text-purple-300">executed</code>) with SHA-256 digests.</p>
+        </div>
+        <button onclick="refreshAudit()" class="text-xs px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+          Refresh Trail
+        </button>
+      </div>
+
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full text-left text-xs code-font">
+          <thead class="bg-slate-950/70 text-slate-400 border-b border-slate-800">
+            <tr>
+              <th class="py-2.5 px-3">Timestamp</th>
+              <th class="py-2.5 px-3">Event</th>
+              <th class="py-2.5 px-3">Action ID</th>
+              <th class="py-2.5 px-3">Actor</th>
+              <th class="py-2.5 px-3">Payload SHA-256 Digest</th>
+              <th class="py-2.5 px-3">Details</th>
+            </tr>
+          </thead>
+          <tbody id="auditTableBody" class="divide-y divide-slate-800/60 text-slate-300">
+            <tr>
+              <td colspan="6" class="py-4 text-center text-slate-500">No audit events recorded yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 4: JSON-RPC 2.0 MCP & Scheduler Testing Sandbox -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- MCP Raw Inspector -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <h3 class="text-sm font-semibold text-slate-200 mb-1">MCP JSON-RPC 2.0 Inspector</h3>
+        <p class="text-xs text-slate-400 mb-3">Send raw JSON-RPC requests to test schema validation, notifications, and error codes.</p>
+        <div class="flex items-center space-x-2 mb-2">
+          <button onclick="loadMcpTemplate('list')" class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 rounded text-slate-300">tools/list</button>
+          <button onclick="loadMcpTemplate('valid')" class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 rounded text-slate-300">Valid Call</button>
+          <button onclick="loadMcpTemplate('type_error')" class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 rounded text-slate-300">Bool/Int Schema Error</button>
+          <button onclick="loadMcpTemplate('unknown')" class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 rounded text-slate-300">-32602 Unknown Tool</button>
+        </div>
+        <textarea id="mcpRpcPayload" rows="6" class="w-full bg-slate-950 border border-slate-800 text-xs rounded p-2 text-emerald-400 code-font"></textarea>
+        <div class="mt-2 flex justify-between items-center">
+          <span class="text-[11px] text-slate-500">Endpoint: POST /mcp (Bearer auth)</span>
+          <button onclick="sendRawMcp()" class="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium">Send JSON-RPC</button>
+        </div>
+        <div id="mcpRpcResponse" class="mt-3 p-3 bg-slate-950/80 rounded border border-slate-800 text-xs code-font text-slate-300 max-h-40 overflow-y-auto hidden"></div>
+      </div>
+
+      <!-- Idempotent Scheduler & Pause Switch -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <h3 class="text-sm font-semibold text-slate-200 mb-1">Idempotent Scheduler & Circuit Breaker</h3>
+        <p class="text-xs text-slate-400 mb-3">Tests period key deduplication (<code class="text-sky-300">triage:hourly:YYYY-MM-DD-HH</code>), pause switch, and circuit breaker (trips on 3 failures).</p>
+        <div class="space-y-3 text-xs">
+          <div class="flex items-center space-x-3">
+            <button onclick="triggerScheduler(false)" class="flex-1 px-3 py-2 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium">Run Hourly Job (Success)</button>
+            <button onclick="triggerScheduler(true)" class="flex-1 px-3 py-2 rounded bg-rose-600/80 hover:bg-rose-500 text-white font-medium">Simulate Failure (Test Breaker)</button>
+          </div>
+          <div id="schedulerResult" class="p-3 bg-slate-950/80 rounded border border-slate-800 text-xs code-font text-slate-300 max-h-48 overflow-y-auto">
+            Scheduler ready. Click a button to test deduplication or circuit breaker.
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+    SentinelOps Capstone Project &bull; Guarded Incident Triage Agent &bull; MIT License
+  </footer>
+
+  <script>
+    let activeActionId = null;
+    let activeSeenHash = null;
+
+    const PRESETS = {
+      sla: {
+        ticketId: "TCK-9901",
+        accountId: "ACC-101",
+        customerName: "Acme Corp",
+        issue: "504 Gateway Timeout during checkout, requesting 20% SLA credit as per Enterprise tier agreement."
+      },
+      auth: {
+        ticketId: "TCK-8822",
+        accountId: "ACC-202",
+        customerName: "Globex Dynamics",
+        issue: "Enterprise SSO SAML assertion failure locking 50 engineers out of workspace."
+      },
+      billing: {
+        ticketId: "TCK-7733",
+        accountId: "ACC-303",
+        customerName: "Initech Systems",
+        issue: "Billing invoice INV-449 has duplicate charge for API overages, requesting clarification and adjustment."
+      }
+    };
+
+    function loadPreset() {
+      const p = document.getElementById("ticketPreset").value;
+      const data = PRESETS[p];
+      if (data) {
+        document.getElementById("ticketId").value = data.ticketId;
+        document.getElementById("accountId").value = data.accountId;
+        document.getElementById("customerName").value = data.customerName;
+        document.getElementById("ticketIssue").value = data.issue;
+      }
+    }
+
+    async function checkHealth() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        const badge = document.getElementById('healthBadge');
+        if (res.ok && data.status === 'ok') {
+          badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>GET /health: 200 OK</span>`;
+          document.getElementById('envBadge').innerText = `ENV: ${data.app_env.toUpperCase()}`;
+          document.getElementById('mockBadge').innerText = `MOCK: ${data.mock_mode ? 'ON' : 'OFF'}`;
+          updatePauseBtn(data.paused);
+        } else {
+          badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-400"></span><span>GET /health: 503 (${data.error_class || 'Degraded'})</span>`;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function updatePauseBtn(isPaused) {
+      const btn = document.getElementById('pauseToggleBtn');
+      if (isPaused) {
+        btn.className = "px-3 py-1 rounded-md text-xs font-semibold bg-rose-600 text-white border border-rose-500 shadow-sm animate-pulse";
+        btn.innerText = "Pause: ON (PAUSE File Active)";
+      } else {
+        btn.className = "px-3 py-1 rounded-md text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition";
+        btn.innerText = "Pause: OFF";
+      }
+    }
+
+    async function togglePause() {
+      const btn = document.getElementById('pauseToggleBtn');
+      const isCurrentlyPaused = btn.innerText.includes("ON");
+      const res = await fetch('/api/pause', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ paused: !isCurrentlyPaused })
+      });
+      const data = await res.json();
+      updatePauseBtn(data.paused);
+      refreshAudit();
+    }
+
+    async function runTriage() {
+      const btn = document.getElementById('triageBtn');
+      const spinner = document.getElementById('triageSpinner');
+      btn.disabled = true;
+      spinner.classList.remove('hidden');
+
+      const payload = {
+        ticket_id: document.getElementById('ticketId').value,
+        account_id: document.getElementById('accountId').value,
+        customer_name: document.getElementById('customerName').value,
+        issue: document.getElementById('ticketIssue').value,
+        simulate_low_score: document.getElementById('simulateLowScore').checked,
+      };
+
+      try {
+        const res = await fetch('/api/triage', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const trace = await res.json();
+        renderPipelineTrace(trace);
+        refreshAudit();
+        refreshQueue();
+      } catch (err) {
+        alert("Triage request failed: " + err);
+      } finally {
+        btn.disabled = false;
+        spinner.classList.add('hidden');
+      }
+    }
+
+    function renderPipelineTrace(trace) {
+      // Step 1: Render Tool Calls
+      const mcpContainer = document.getElementById('mcpCallsContainer');
+      const schemaBadge = document.getElementById('schemaBadge');
+      schemaBadge.className = "text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+      schemaBadge.innerText = "Schema Validated";
+
+      let mcpHtml = '';
+      (trace.tool_calls || []).forEach(call => {
+        const isErr = call.response?.result?.isError || false;
+        mcpHtml += `
+          <div class="p-3 bg-slate-950 rounded border ${isErr ? 'border-rose-800' : 'border-slate-800'} space-y-1.5">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-sky-400 font-semibold">${call.tool}()</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded ${isErr ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'}">
+                ${isErr ? 'ERROR' : '200 OK'}
+              </span>
+            </div>
+            <div class="text-[11px] text-slate-400">Args: ${JSON.stringify(call.arguments)}</div>
+            <pre class="p-2 bg-slate-900 rounded text-[10px] text-slate-300 overflow-x-auto whitespace-pre-wrap">${JSON.stringify(call.response?.result?.content || call.response, null, 2)}</pre>
+          </div>
+        `;
+      });
+      mcpContainer.innerHTML = mcpHtml;
+
+      // Step 2: Render QA Scorecard
+      const qaContainer = document.getElementById('qaScorecardContainer');
+      const qaBadge = document.getElementById('qaBadge');
+      const qg = trace.reviewer_gate;
+
+      if (qg) {
+        qaBadge.className = qg.passed 
+          ? "text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" 
+          : "text-[10px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30";
+        qaBadge.innerText = qg.status.toUpperCase();
+
+        let qaHtml = '';
+        (qg.attempts || []).forEach(att => {
+          const pass = att.passed;
+          qaHtml += `
+            <div class="p-3 bg-slate-950 rounded border ${pass ? 'border-emerald-900/60' : 'border-amber-900/60'} space-y-2">
+              <div class="flex items-center justify-between font-semibold">
+                <span class="${pass ? 'text-emerald-400' : 'text-amber-400'}">Attempt #${att.attempt_number} ${pass ? '(Approved)' : '(Rewrite Triggered)'}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded ${pass ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">
+                  ${pass ? 'PASSED' : 'RETRYING'}
+                </span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-[11px]">
+                ${Object.entries(att.scores || {}).map(([k, v]) => `
+                  <div class="flex items-center justify-between p-1.5 bg-slate-900 rounded border border-slate-800">
+                    <span class="text-slate-400 capitalize">${k}</span>
+                    <span class="font-bold ${v >= 8 ? 'text-emerald-400' : 'text-amber-400'}">${v}/10</span>
+                  </div>
+                `).join('')}
+              </div>
+              <div class="text-[11px] text-slate-400 bg-slate-900/80 p-2 rounded border border-slate-800/80">
+                <span class="font-semibold text-slate-300">Reviewer Notes:</span> ${att.notes}
+              </div>
+            </div>
+          `;
+        });
+        qaContainer.innerHTML = qaHtml;
+      }
+
+      // Step 3: Render Approval Queue card
+      renderQueueCard(trace);
+    }
+
+    function renderQueueCard(trace) {
+      const qContainer = document.getElementById('approvalActionContainer');
+      const item = trace.approval_item;
+      if (!item || !item.action_id) {
+        qContainer.innerHTML = `<div class="p-3 bg-slate-950 rounded text-slate-500 text-center">Draft was held by QA gate or not queued.</div>`;
+        return;
+      }
+
+      activeActionId = item.action_id;
+      activeSeenHash = item.seen_hash;
+
+      qContainer.innerHTML = `
+        <div class="p-4 bg-slate-950 rounded border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="code-font text-sky-400 font-bold">${item.action_id}</span>
+            <span id="cardStatusBadge" class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              PENDING APPROVAL
+            </span>
+          </div>
+
+          <div>
+            <div class="text-[11px] text-slate-400 mb-1">Cryptographic Payload SHA-256 Digest:</div>
+            <div class="p-2 bg-slate-900 rounded code-font text-[10px] text-emerald-400 break-all border border-slate-800 select-all" id="currentHashDisplay">
+              ${item.seen_hash}
+            </div>
+          </div>
+
+          <div class="p-2 bg-slate-900/60 rounded border border-slate-800/60 text-[11px] text-slate-300">
+            <div class="text-slate-400 text-[10px] mb-1 font-semibold">DRAFT PREVIEW:</div>
+            <div class="line-clamp-4 whitespace-pre-wrap">${trace.final_draft || ''}</div>
+          </div>
+
+          <div id="tamperNotice" class="hidden p-2 bg-rose-500/20 border border-rose-500/40 rounded text-rose-300 text-[11px]">
+            ⚠️ <strong>PAYLOAD TAMPERED:</strong> Body altered post-approval! Current hash does not match approved hash.
+          </div>
+
+          <div id="execResultNotice" class="hidden p-2 bg-emerald-500/20 border border-emerald-500/40 rounded text-emerald-300 text-[11px]">
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-2">
+            <button onclick="approveCurrent()" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs">
+              Approve (Lock Hash)
+            </button>
+            <button onclick="rejectCurrent()" class="px-3 py-1.5 rounded bg-rose-700 hover:bg-rose-600 text-white font-medium text-xs">
+              Reject
+            </button>
+            <button onclick="tamperCurrent()" class="px-3 py-1.5 rounded bg-amber-600/80 hover:bg-amber-600 text-white font-medium text-xs">
+              Simulate Tamper
+            </button>
+            <button onclick="executeCurrent()" class="px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs">
+              Execute (Idempotent)
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function approveCurrent() {
+      if (!activeActionId) return;
+      try {
+        const res = await fetch(`/api/queue/${activeActionId}/approve`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            by: "lead.analyst@sentinelops.internal",
+            seen_hash: activeSeenHash
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert("Approval failed: " + (data.detail || JSON.stringify(data)));
+          return;
+        }
+        document.getElementById('cardStatusBadge').className = "text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+        document.getElementById('cardStatusBadge').innerText = "APPROVED";
+        refreshAudit();
+      } catch (err) {
+        alert("Error: " + err);
+      }
+    }
+
+    async function rejectCurrent() {
+      if (!activeActionId) return;
+      const reason = prompt("Enter rejection reason:", "Wording or credit tier requires further investigation");
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/queue/${activeActionId}/reject`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            by: "lead.analyst@sentinelops.internal",
+            reason: reason
+          })
+        });
+        const data = await res.json();
+        document.getElementById('cardStatusBadge').className = "text-[10px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30";
+        document.getElementById('cardStatusBadge').innerText = "REJECTED";
+        refreshAudit();
+      } catch (err) {
+        alert("Error: " + err);
+      }
+    }
+
+    async function tamperCurrent() {
+      if (!activeActionId) return;
+      try {
+        const res = await fetch(`/api/queue/${activeActionId}/tamper`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ altered_body: "[TAMPERED]: 100% Free Lifetime Credit Added without authorization!" })
+        });
+        const data = await res.json();
+        document.getElementById('tamperNotice').classList.remove('hidden');
+        document.getElementById('cardStatusBadge').className = "text-[10px] px-2 py-0.5 rounded bg-rose-600/30 text-rose-200 border border-rose-500";
+        document.getElementById('cardStatusBadge').innerText = "TAMPERED";
+        refreshAudit();
+      } catch (err) {
+        alert("Error: " + err);
+      }
+    }
+
+    async function executeCurrent() {
+      if (!activeActionId) return;
+      try {
+        const res = await fetch(`/api/queue/${activeActionId}/execute`, {
+          method: 'POST'
+        });
+        const data = await res.json();
+        const notice = document.getElementById('execResultNotice');
+        notice.classList.remove('hidden');
+        if (!res.ok) {
+          notice.className = "p-2 bg-rose-500/20 border border-rose-500/40 rounded text-rose-300 text-[11px]";
+          notice.innerHTML = `🛑 <strong>BLOCKED:</strong> ${data.detail || 'Execution blocked by security policy.'}`;
+        } else {
+          notice.className = "p-2 bg-purple-500/20 border border-purple-500/40 rounded text-purple-300 text-[11px]";
+          notice.innerHTML = `✅ <strong>EXECUTED:</strong> Dispatched idempotently. Action ID: <code class="text-purple-200">${data.result.idempotency_key}</code>`;
+          document.getElementById('cardStatusBadge').className = "text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30";
+          document.getElementById('cardStatusBadge').innerText = "EXECUTED";
+        }
+        refreshAudit();
+      } catch (err) {
+        alert("Error: " + err);
+      }
+    }
+
+    async function refreshAudit() {
+      try {
+        const res = await fetch('/api/audit');
+        const data = await res.json();
+        const tbody = document.getElementById('auditTableBody');
+        if (!data.events || data.events.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-slate-500">No audit events recorded yet.</td></tr>';
+          return;
+        }
+
+        const events = [...data.events].reverse();
+        let rows = '';
+        events.forEach(e => {
+          let badgeClass = "bg-slate-800 text-slate-300";
+          if (e.event_type === 'proposed') badgeClass = "bg-sky-500/20 text-sky-300 border border-sky-500/30";
+          if (e.event_type === 'approved') badgeClass = "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+          if (e.event_type === 'rejected') badgeClass = "bg-amber-500/20 text-amber-300 border border-amber-500/30";
+          if (e.event_type === 'executed') badgeClass = "bg-purple-500/20 text-purple-300 border border-purple-500/30";
+          if (e.event_type === 'blocked' || e.event_type === 'failed') badgeClass = "bg-rose-500/20 text-rose-300 border border-rose-500/30";
+
+          rows += `
+            <tr class="hover:bg-slate-800/40 transition">
+              <td class="py-2.5 px-3 text-slate-400">${e.timestamp.substring(11, 19)}</td>
+              <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold ${badgeClass}">${e.event_type}</span></td>
+              <td class="py-2.5 px-3 text-sky-400">${e.action_id}</td>
+              <td class="py-2.5 px-3 text-slate-300">${e.actor}</td>
+              <td class="py-2.5 px-3 text-[10px] text-slate-400 font-mono">${(e.payload_hash || '').substring(0, 16)}...</td>
+              <td class="py-2.5 px-3 text-slate-400 max-w-xs truncate">${JSON.stringify(e.details)}</td>
+            </tr>
+          `;
+        });
+        tbody.innerHTML = rows;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function refreshQueue() {
+      try {
+        const res = await fetch('/api/queue');
+        const data = await res.json();
+        document.getElementById('queueBadge').innerText = `${data.count} Items`;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // MCP Templates
+    const MCP_TEMPLATES = {
+      list: {
+        jsonrpc: "2.0",
+        method: "tools/list",
+        id: "call_list_001"
+      },
+      valid: {
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: {
+          name: "search_runbooks",
+          arguments: {
+            query: "outage sla credit",
+            category: "sla"
+          }
+        },
+        id: "call_search_002"
+      },
+      type_error: {
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: {
+          name: "search_runbooks",
+          arguments: {
+            query: true, // Boolean rejected for string!
+            category: "sla"
+          }
+        },
+        id: "call_invalid_type_003"
+      },
+      unknown: {
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: {
+          name: "non_existent_tool_xyz",
+          arguments: {}
+        },
+        id: "call_unknown_004"
+      }
+    };
+
+    function loadMcpTemplate(name) {
+      const template = MCP_TEMPLATES[name];
+      document.getElementById('mcpRpcPayload').value = JSON.stringify(template, null, 2);
+    }
+
+    async function sendRawMcp() {
+      const payloadText = document.getElementById('mcpRpcPayload').value;
+      const respBox = document.getElementById('mcpRpcResponse');
+      try {
+        const bodyObj = JSON.parse(payloadText);
+        const res = await fetch('/mcp', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer sentinelops-demo-auth-token-xyz'
+          },
+          body: JSON.stringify(bodyObj)
+        });
+
+        if (res.status === 204) {
+          respBox.classList.remove('hidden');
+          respBox.innerText = "HTTP 204 No Content (Notification successfully received)";
+          return;
+        }
+
+        const data = await res.json();
+        respBox.classList.remove('hidden');
+        respBox.innerText = JSON.stringify(data, null, 2);
+      } catch (err) {
+        respBox.classList.remove('hidden');
+        respBox.innerText = "Error: " + err;
+      }
+    }
+
+    async function triggerScheduler(simulateFail) {
+      const resBox = document.getElementById('schedulerResult');
+      resBox.innerText = "Executing scheduler job...";
+      try {
+        const res = await fetch('/api/scheduler/run', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            job_name: "triage",
+            period: "hourly",
+            simulate_failure: simulateFail
+          })
+        });
+        const data = await res.json();
+        resBox.innerText = JSON.stringify(data, null, 2);
+      } catch (err) {
+        resBox.innerText = "Scheduler call failed: " + err;
+      }
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+      } else {
+        html.classList.add('dark');
+      }
+    }
+
+    // Initialize
+    loadMcpTemplate('list');
+    checkHealth();
+    refreshAudit();
+    refreshQueue();
+    setInterval(checkHealth, 10000);
+  </script>
+</body>
+</html>

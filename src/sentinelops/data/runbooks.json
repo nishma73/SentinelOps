@@ -1,0 +1,58 @@
+[
+  {
+    "id": "RB-SLA-001",
+    "title": "Service Degradation & SLA Refund Policy",
+    "category": "sla",
+    "tags": ["outage", "sla", "refund", "credit", "504", "downtime"],
+    "summary": "Guidelines for customer SLA breach claims and credit calculations.",
+    "policy": "Enterprise tier accounts are eligible for up to 20% monthly credit for unscheduled downtime exceeding 30 minutes. Pro tier is eligible for up to 10%. Support agents can authorize credits up to $500 directly; amounts above $500 require human managerial approval in the queue. An incident ticket ID must be referenced in all responses.",
+    "action_steps": [
+      "1. Verify customer tier and active SLA entitlement via lookup_customer_account.",
+      "2. Calculate outage duration and confirm incident ID from Status Dashboard.",
+      "3. Draft credit proposal stating SLA terms and credit amount.",
+      "4. Submit customer reply to approval queue; do not commit funds without approval."
+    ]
+  },
+  {
+    "id": "RB-BILL-002",
+    "title": "Billing Discrepancies and Invoice Inquiries",
+    "category": "billing",
+    "tags": ["billing", "invoice", "charge", "refund", "overage"],
+    "summary": "Standard operating procedure for handling billing disputes and refund requests.",
+    "policy": "Review itemized usage before acknowledging billing errors. Refunds up to $250 may be proposed for immediate processing; disputes above $250 require secondary billing review.",
+    "action_steps": [
+      "1. Retrieve account billing history and invoice identifier.",
+      "2. Cross-reference usage metrics against plan allowances.",
+      "3. Provide itemized breakdown in customer communication.",
+      "4. Propose adjustment or credit via approval queue."
+    ]
+  },
+  {
+    "id": "RB-AUTH-003",
+    "title": "Enterprise SSO & SAML Authentication Failures",
+    "category": "auth",
+    "tags": ["auth", "sso", "saml", "okta", "azure_ad", "login"],
+    "summary": "Troubleshooting SAML 2.0 and OIDC identity federation errors.",
+    "policy": "Do not request raw user credentials or private keys. Guide customer IT administrators to verify X.509 certificate validity and assertion consumer service (ACS) URL.",
+    "action_steps": [
+      "1. Verify customer account SSO configuration status.",
+      "2. Check gateway error codes (e.g., SAMLResponse decryption failure, clock skew).",
+      "3. Provide IdP configuration checklist and test tenant endpoint.",
+      "4. Queue customer response with diagnostic instructions."
+    ]
+  },
+  {
+    "id": "RB-SEC-004",
+    "title": "Security Incident and Credential Rotation",
+    "category": "security",
+    "tags": ["security", "breach", "compromise", "leak", "api_key"],
+    "summary": "Immediate containment procedure for suspected security events.",
+    "policy": "Never acknowledge a confirmed security breach without CISO and Legal sign-off. Immediately advise customer to revoke and rotate exposed credentials.",
+    "action_steps": [
+      "1. Identify affected tokens or customer scopes.",
+      "2. Direct customer to Security Console for instant revocation.",
+      "3. Escalate ticket to internal SecOps incident channel.",
+      "4. Propose formal acknowledgement through approval queue."
+    ]
+  }
+]

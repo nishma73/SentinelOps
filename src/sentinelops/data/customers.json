@@ -1,0 +1,41 @@
+[
+  {
+    "account_id": "ACC-101",
+    "name": "Acme Corp",
+    "tier": "Enterprise",
+    "arr": "$120,000",
+    "sla": "99.99%",
+    "contact_name": "Alice Johnson",
+    "contact_email": "alice@acme.corp",
+    "account_manager": "Sarah Jenkins",
+    "status": "active",
+    "recent_incidents": ["INC-8891 (504 Gateway Degradation)"],
+    "max_sla_credit_percent": 20
+  },
+  {
+    "account_id": "ACC-202",
+    "name": "Globex Dynamics",
+    "tier": "Pro",
+    "arr": "$24,000",
+    "sla": "99.90%",
+    "contact_name": "Bob Martinez",
+    "contact_email": "bob@globex.io",
+    "account_manager": "Dave Miller",
+    "status": "active",
+    "recent_incidents": ["INC-7721 (SSO Token Sync Delay)"],
+    "max_sla_credit_percent": 10
+  },
+  {
+    "account_id": "ACC-303",
+    "name": "Initech Systems",
+    "tier": "Starter",
+    "arr": "$3,600",
+    "sla": "99.50%",
+    "contact_name": "Peter Gibbons",
+    "contact_email": "peter@initech.com",
+    "account_manager": "Support Pool",
+    "status": "delinquent",
+    "recent_incidents": [],
+    "max_sla_credit_percent": 5
+  }
+]
